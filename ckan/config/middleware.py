@@ -505,14 +505,13 @@ class AskAppDispatcherMiddleware(WSGIParty):
             return self.apps[app_name](environ, start_response)
         else:
             # Although this request will be served by Pylons we still
-            # need an application context and a request context in order
+            # need a request context (wich will create an app context) in order
             # for the Flask URL builder to work
 
             flask_app = self.apps['flask_app']._flask_app
 
-            with flask_app.app_context():
-                with flask_app.test_request_context(environ_overrides=environ):
-                    return self.apps[app_name](environ, start_response)
+            with flask_app.test_request_context(environ_overrides=environ):
+                return self.apps[app_name](environ, start_response)
 
 
 class RootPathMiddleware(object):
