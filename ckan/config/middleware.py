@@ -7,13 +7,15 @@ import hashlib
 import os
 import webob
 import itertools
+import urlparse
 
 import sqlalchemy as sa
 from beaker.middleware import CacheMiddleware, SessionMiddleware
 from paste.cascade import Cascade
-from paste.registry import RegistryManager
+from paste.registry import RegistryManager, Registry
 from paste.urlparser import StaticURLParser
 from paste.deploy.converters import asbool
+from routes import request_config as routes_request_config
 from pylons import config
 from pylons.middleware import ErrorHandler, StatusCodeRedirect
 from pylons.wsgiapp import PylonsApp
@@ -502,12 +504,19 @@ class AskAppDispatcherMiddleware(WSGIParty):
         log.debug('Serving request via {0} app'.format(app_name))
         environ['ckan.app'] = app_name
         if app_name == 'flask_app':
+            # This request will be served by Flask, but we still need the
+            # Pylons URL builder (Routes) to work
+            parts = urlparse.urlparse(config.get('ckan.site_url', 'http://0.0.0.0:5000'))
+            request_config = routes_request_config()
+            request_config.host = str(parts.netloc + parts.path)
+            request_config.protocol = str(parts.scheme)
+            request_config.mapper = config['routes.map']
+#            import ipdb; ipdb.set_trace()
             return self.apps[app_name](environ, start_response)
         else:
             # Although this request will be served by Pylons we still
             # need a request context (wich will create an app context) in order
             # for the Flask URL builder to work
-
             flask_app = self.apps['flask_app']._flask_app
 
             with flask_app.test_request_context(environ_overrides=environ):
@@ -550,6 +559,7 @@ class I18nMiddleware(object):
 
         # We only update once for a request so we can keep
         # the language and original url which helps with 404 pages etc
+#        import ipdb; ipdb.set_trace()
         if 'CKAN_LANG' not in environ:
             path_parts = environ['PATH_INFO'].split('/')
             if len(path_parts) > 1 and path_parts[1] in self.local_list:

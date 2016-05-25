@@ -1,11 +1,12 @@
 import cgi
 import logging
 
-from flask import Blueprint, request, make_response, g, redirect, url_for
+from flask import Blueprint, request, make_response, g, redirect
 from werkzeug.exceptions import BadRequest
 
 import ckan.model as model
-from ckan.common import json, _
+from ckan.common import json, _, c
+from ckan.lib.helpers import url_for
 
 from ckan.lib.navl.dictization_functions import DataError
 from ckan.logic import get_action, ValidationError, NotFound, NotAuthorized
@@ -40,17 +41,17 @@ api = Blueprint('api', __name__, url_prefix='/api')
 def _identify_user():
     '''Try to identify the user
     If the user is identified then:
-      g.user = user name (unicode)
-      g.userobj = user object
-      g.author = user name
+      c.user = user name (unicode)
+      c.userobj = user object
+      c.author = user name
     otherwise:
-      g.user = None
-      g.userobj = None
-      g.author = user's IP address (unicode)'''
+      c.user = None
+      c.userobj = None
+      c.author = user's IP address (unicode)'''
     # see if it was proxied first
-    g.remote_addr = request.environ.get('HTTP_X_FORWARDED_FOR', '')
-    if not g.remote_addr:
-        g.remote_addr = request.environ.get('REMOTE_ADDR',
+    c.remote_addr = request.environ.get('HTTP_X_FORWARDED_FOR', '')
+    if not c.remote_addr:
+        c.remote_addr = request.environ.get('REMOTE_ADDR',
                                             'Unknown IP Address')
 
     # TODO:
@@ -64,21 +65,21 @@ def _identify_user():
     #            break
 
     # We haven't identified the user so try the default methods
-    if not getattr(g, 'user', None):
+    if not getattr(c, 'user', None):
         _identify_user_default()
 
     # If we have a user but not the userobj let's get the userobj.  This
     # means that IAuthenticator extensions do not need to access the user
     # model directly.
-    if g.user and not getattr(g, 'userobj', None):
-        g.userobj = model.User.by_name(g.user)
+    if c.user and not getattr(c, 'userobj', None):
+        c.userobj = model.User.by_name(c.user)
 
     # general settings
-    if g.user:
-        g.author = g.user
+    if c.user:
+        c.author = c.user
     else:
-        g.author = g.remote_addr
-    g.author = unicode(g.author)
+        c.author = c.remote_addr
+    c.author = unicode(c.author)
 
 
 def _identify_user_default():
@@ -95,11 +96,11 @@ def _identify_user_default():
     # with an userid_checker, but that would mean another db access.
     # See: http://docs.repoze.org/who/1.0/narr.html#module-repoze.who\
     # .plugins.sql )
-    g.user = request.environ.get('REMOTE_USER', '')
-    if g.user:
-        g.user = g.user.decode('utf8')
-        g.userobj = model.User.by_name(g.user)
-        if g.userobj is None or not g.userobj.is_active():
+    c.user = request.environ.get('REMOTE_USER', '')
+    if c.user:
+        c.user = c.user.decode('utf8')
+        c.userobj = model.User.by_name(c.user)
+        if c.userobj is None or not c.userobj.is_active():
             # This occurs when a user that was still logged in is deleted,
             # or when you are logged in, clean db
             # and then restart (or when you change your username)
@@ -117,9 +118,9 @@ def _identify_user_default():
                               'logout_handler_path')
                 redirect(pth)
     else:
-        g.userobj = _get_user_for_apikey()
-        if g.userobj is not None:
-            g.user = g.userobj.name
+        c.userobj = _get_user_for_apikey()
+        if c.userobj is not None:
+            c.user = c.userobj.name
 
 
 def _get_user_for_apikey():
@@ -332,8 +333,8 @@ def action(logic_function, ver=API_DEFAULT_VERSION):
     # TODO: Abstract to base class
     _identify_user()
 
-    context = {'model': model, 'session': model.Session, 'user': g.user,
-               'api_version': ver, 'auth_user_obj': g.userobj}
+    context = {'model': model, 'session': model.Session, 'user': c.user,
+               'api_version': ver, 'auth_user_obj': c.userobj}
     model.Session()._context = context
 
     # TODO: backwards-compatible named routes?
@@ -365,8 +366,8 @@ def action(logic_function, ver=API_DEFAULT_VERSION):
     # if callback is specified we do not want to send that to the search
     if 'callback' in request_data:
         del request_data['callback']
-        g.user = None
-        g.userobj = None
+        c.user = None
+        c.userobj = None
         context['user'] = None
         context['auth_user_obj'] = None
     try:
@@ -433,10 +434,55 @@ def get_api(ver=1):
     return _finish_ok(response_data)
 
 
+def test_flask_plus_pylons():
+
+    _identify_user()
+
+    # TODO: Move this to a test
+    url_pylons = url_for(controller='package', action='edit', id='test-id')
+
+    url_pylons_external = url_for(controller='package', action='edit', id='test-id', qualified=True)
+
+    url_flask_old_syntax = url_for(
+        controller='api', action='action', ver='3',
+        logic_function='package_show', id='test-id')
+
+    url_flask_external_old_syntax = url_for(
+        controller='api', action='action', ver='3',
+        logic_function='package_show', id='test-id', qualified=True)
+
+    url_flask_new_syntax = url_for(
+        'api.action', ver=3,
+        logic_function='package_search', q='-name:test-*',
+        sort='name desc')
+
+    url_flask_external_new_syntax = url_for(
+        'api.action', ver=3,
+        logic_function='package_search', q='-name:test-*',
+        sort='name desc', _external=True)
+
+    out = {
+        'c_user': c.user,
+        'lang_on_environ_CKAN_LANG': request.environ.get('CKAN_LANG'),
+        'translated_string': _('Editor'),
+        'url_from_pylons': url_pylons,
+        'url_from_pylons_external': url_pylons_external,
+        'url_from_flask_old_syntax': url_flask_old_syntax,
+        'url_from_flask_new_syntax': url_flask_new_syntax,
+        'url_from_flask_external_old_syntax': url_flask_external_old_syntax,
+        'url_from_flask_external_new_syntax': url_flask_external_new_syntax,
+
+    }
+
+    return _finish_ok(out)
+
+
 # Routing
 
 
 api.add_url_rule('/', view_func=get_api, strict_slashes=False)
+
+api.add_url_rule('/test_flask_plus_pylons', view_func=test_flask_plus_pylons, strict_slashes=False)
 api.add_url_rule('/action/<logic_function>', methods=['GET', 'POST'],
                  view_func=action)
 api.add_url_rule('/<int(min=3, max={0}):ver>/action/<logic_function>'.format(
