@@ -12,7 +12,7 @@ import urlparse
 import sqlalchemy as sa
 from beaker.middleware import CacheMiddleware, SessionMiddleware
 from paste.cascade import Cascade
-from paste.registry import RegistryManager, Registry
+from paste.registry import RegistryManager
 from paste.urlparser import StaticURLParser
 from paste.deploy.converters import asbool
 from routes import request_config as routes_request_config
@@ -73,13 +73,11 @@ webob.request.BaseRequest.charset = property(
 
 def make_app(conf, full_stack=True, static_files=True, **app_conf):
 
-    # :::TODO::: like the flask app, make the pylons app respond to invites at
-    # /__invite__/, and handle can_handle_request requests.
-
     pylons_app = make_pylons_stack(conf, full_stack, static_files, **app_conf)
     flask_app = make_flask_stack(conf, **app_conf)
 
-    app = AskAppDispatcherMiddleware({'pylons_app': pylons_app, 'flask_app': flask_app})
+    app = AskAppDispatcherMiddleware({'pylons_app': pylons_app,
+                                      'flask_app': flask_app})
 
     return app
 
@@ -187,8 +185,6 @@ def make_pylons_stack(conf, full_stack=True, static_files=True, **app_conf):
 
     # Establish the Registry for this application
     app = RegistryManager(app)
-
-    app = I18nMiddleware(app, config)
 
     if asbool(static_files):
         # Serve static files
@@ -330,8 +326,6 @@ def make_flask_stack(conf, **app_conf):
 
     # Start other middleware
 
-    app = I18nMiddleware(app, config)
-
     # Initialize repoze.who
     who_parser = WhoConfig(conf['here'])
     who_parser.parse(open(app_conf['who.config_file']))
@@ -459,6 +453,8 @@ class AskAppDispatcherMiddleware(WSGIParty):
 
         self.send_invitations(apps)
 
+        self.i18n_middleware = I18nMiddleware()
+
     def send_invitations(self, apps):
         '''Call each app at the invite route to establish a partyline. Called
         on init.'''
@@ -474,7 +470,10 @@ class AskAppDispatcherMiddleware(WSGIParty):
     def __call__(self, environ, start_response):
         '''Determine which app to call by asking each app if it can handle the
         url and method defined on the eviron'''
-        # :::TODO::: Enforce order of precedence for dispatching to apps here.
+
+        # Handle the i18n first, otherwise localized URLs (eg `/jp/about`)
+        # won't get recognized by the app route mappers
+        self.i18n_middleware(environ, start_response)
 
         app_name = 'pylons_app'  # currently defaulting to pylons app
         answers = self.ask_around('can_handle_request', environ)
@@ -545,8 +544,7 @@ class RootPathMiddleware(object):
 class I18nMiddleware(object):
     """I18n Middleware selects the language based on the url
     eg /fr/home is French"""
-    def __init__(self, app, config):
-        self.app = app
+    def __init__(self):
         self.default_locale = config.get('ckan.locale_default', 'en')
         self.local_list = get_locales_from_config()
 
@@ -559,7 +557,6 @@ class I18nMiddleware(object):
 
         # We only update once for a request so we can keep
         # the language and original url which helps with 404 pages etc
-#        import ipdb; ipdb.set_trace()
         if 'CKAN_LANG' not in environ:
             path_parts = environ['PATH_INFO'].split('/')
             if len(path_parts) > 1 and path_parts[1] in self.local_list:
@@ -577,7 +574,8 @@ class I18nMiddleware(object):
             # Current application url
             path_info = environ['PATH_INFO']
             # sort out weird encodings
-            path_info = '/'.join(urllib.quote(pce, '') for pce in path_info.split('/'))
+            path_info = '/'.join(urllib.quote(pce, '') for pce
+                                 in path_info.split('/'))
 
             qs = environ.get('QUERY_STRING')
 
@@ -587,8 +585,6 @@ class I18nMiddleware(object):
                 environ['CKAN_CURRENT_URL'] = '%s?%s' % (path_info, qs)
             else:
                 environ['CKAN_CURRENT_URL'] = path_info
-
-        return self.app(environ, start_response)
 
 
 class PageCacheMiddleware(object):
