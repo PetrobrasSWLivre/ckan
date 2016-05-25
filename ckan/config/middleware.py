@@ -127,7 +127,8 @@ def make_pylons_stack(conf, full_stack=True, static_files=True, **app_conf):
     # CUSTOM MIDDLEWARE HERE (filtered by error handling middlewares)
     # app = QueueLogMiddleware(app)
     if asbool(config.get('ckan.use_pylons_response_cleanup_middleware', True)):
-        app = execute_on_completion(app, config, cleanup_pylons_response_string)
+        app = execute_on_completion(
+            app, config, cleanup_pylons_response_string)
 
     # Fanstatic
     if asbool(config.get('debug', False)):
@@ -153,7 +154,8 @@ def make_pylons_stack(conf, full_stack=True, static_files=True, **app_conf):
             app = plugin.make_error_log_middleware(app, config)
         except AttributeError:
             log.critical('Middleware class {0} is missing the method'
-                         'make_error_log_middleware.'.format(plugin.__class__.__name__))
+                         'make_error_log_middleware.'.format(
+                             plugin.__class__.__name__))
 
     if asbool(full_stack):
         # Handle Python exceptions
@@ -364,8 +366,8 @@ class CKANFlask(Flask):
         self.partyline = None
         self.partyline_connected = False
         self.invitation_context = None
-        self.app_name = None  # A label for the app handling this request
-                              # (this app).
+        # A label for the app handling this request (this app).
+        self.app_name = None
 
     def join_party(self, request=flask_request):
         # Bootstrap, turn the view function into a 404 after registering.
@@ -505,12 +507,12 @@ class AskAppDispatcherMiddleware(WSGIParty):
         if app_name == 'flask_app':
             # This request will be served by Flask, but we still need the
             # Pylons URL builder (Routes) to work
-            parts = urlparse.urlparse(config.get('ckan.site_url', 'http://0.0.0.0:5000'))
+            parts = urlparse.urlparse(config.get('ckan.site_url',
+                                                 'http://0.0.0.0:5000'))
             request_config = routes_request_config()
             request_config.host = str(parts.netloc + parts.path)
             request_config.protocol = str(parts.scheme)
             request_config.mapper = config['routes.map']
-#            import ipdb; ipdb.set_trace()
             return self.apps[app_name](environ, start_response)
         else:
             # Although this request will be served by Pylons we still
@@ -648,7 +650,7 @@ class PageCacheMiddleware(object):
         if result:
             headers = json.loads(result[1])
             # Convert headers from list to tuples.
-            headers = [(str(key), str(value)) for key, value in headers]
+            headers = [(str(k), str(v)) for k, v in headers]
             start_response(str(result[0]), headers)
             # Returning a huge string slows down the server. Therefore we
             # cut it up into more usable chunks.

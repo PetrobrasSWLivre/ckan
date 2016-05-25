@@ -369,7 +369,6 @@ class TestPep8(object):
         'bin/running_stats.py',
         'ckan/__init__.py',
         'ckan/ckan_nose_plugin.py',
-        'ckan/config/middleware.py',
         'ckan/config/routing.py',
         'ckan/config/sp_config.py',
         'ckan/controllers/admin.py',
