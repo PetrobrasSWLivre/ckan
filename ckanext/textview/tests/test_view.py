@@ -9,6 +9,7 @@ import ckan.lib.helpers as h
 import ckanext.textview.plugin as plugin
 import ckan.lib.create_test_data as create_test_data
 import ckan.config.middleware as middleware
+from ckan.tests import helpers
 
 
 def _create_test_view(view_type):
@@ -27,16 +28,14 @@ def _create_test_view(view_type):
     return resource_view, package, resource_id
 
 
-class TestTextView(tests.WsgiAppCase):
+class TestTextView(helpers.FunctionalTestBase):
     view_type = 'text_view'
 
     @classmethod
     def setup_class(cls):
-        cls.config_templates = config['ckan.legacy_templates']
-        config['ckan.legacy_templates'] = 'false'
-        wsgiapp = middleware.make_app(config['global_conf'], **config)
-        plugins.load('text_view')
-        cls.app = paste.fixture.TestApp(wsgiapp)
+
+        super(TestTextView, cls).setup_class()
+
         cls.p = plugin.TextView()
 
         create_test_data.CreateTestData.create()
@@ -46,9 +45,12 @@ class TestTextView(tests.WsgiAppCase):
 
     @classmethod
     def teardown_class(cls):
-        config['ckan.legacy_templates'] = cls.config_templates
         plugins.unload('text_view')
         model.repo.rebuild_db()
+
+    @classmethod
+    def _apply_config_changes(cls, config):
+        config['ckan.plugins'] = 'text_view'
 
     def test_can_view(self):
         url_same_domain = urlparse.urljoin(
@@ -77,17 +79,21 @@ class TestTextView(tests.WsgiAppCase):
         assert not self.p.can_view(data_dict)
 
     def test_title_description_iframe_shown(self):
-        url = h.url_for(controller='package', action='resource_read',
-                        id=self.package.name, resource_id=self.resource_id)
-        result = self.app.get(url)
+        app = self._get_test_app()
+        with app.flask_app.test_request_context():
+            url = h.url_for(controller='package', action='resource_read',
+                            id=self.package.name, resource_id=self.resource_id)
+        result = app.get(url)
         assert self.resource_view['title'] in result
         assert self.resource_view['description'] in result
         assert 'data-module="data-viewer"' in result.body
 
     def test_js_included(self):
-        url = h.url_for(controller='package', action='resource_view',
-                        id=self.package.name, resource_id=self.resource_id,
-                        view_id=self.resource_view['id'])
-        result = self.app.get(url)
+        app = self._get_test_app()
+        with app.flask_app.test_request_context():
+            url = h.url_for(controller='package', action='resource_view',
+                            id=self.package.name, resource_id=self.resource_id,
+                            view_id=self.resource_view['id'])
+        result = app.get(url)
         assert (('text_view.js' in result.body) or
                 ('text_view.min.js' in result.body))

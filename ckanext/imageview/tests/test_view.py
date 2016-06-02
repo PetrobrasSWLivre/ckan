@@ -1,4 +1,4 @@
-from routes import url_for
+from ckan.lib.helpers import url_for
 
 import ckan.plugins as p
 
@@ -37,8 +37,9 @@ class TestImageView(helpers.FunctionalTestBase):
             resource_id=resource['id'],
             image_url='http://some.image.png')
 
-        url = url_for(controller='package', action='resource_read',
-                      id=dataset['name'], resource_id=resource['id'])
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='resource_read',
+                          id=dataset['name'], resource_id=resource['id'])
 
         response = app.get(url)
 
