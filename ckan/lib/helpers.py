@@ -210,6 +210,9 @@ def url_for(*args, **kw):
     original_args = tuple(args)
     original_kw = kw.copy()
 
+    if kw.get('qualified', False) or kw.get('_external', False):
+        original_kw['protocol'], original_kw['host'] = get_site_protocol_and_host()
+
     # TODO: this probably does not cover all cases
     if (len(args) and '_' in args[0]
             and '.' not in args[0]
@@ -227,17 +230,28 @@ def url_for(*args, **kw):
         kw['ver'] = kw['ver'].replace('/', '')
 
     try:
+        kw.pop('host', None)
+        kw.pop('protocol', None)
+
         my_url = _flask_default_url_for(*args, **kw)
+
+        # Flask url_for doesn't allow to override the host and scheme from
+        # the WSGI environment, so we manually set it from the config values.
+        if kw.get('_external', False):
+            protocol, host = get_site_protocol_and_host()
+            parts = urlparse.urlparse(my_url)
+            my_url = urlparse.urlunparse((
+                protocol, host,
+                parts.path, parts.params, parts.query, parts.fragment))
 
     except FlaskRouteBuildError:
         if original_kw.get('controller') == 'api' and original_kw.get('ver'):
-            if not original_kw['ver'].startswith('/'):
+            if (isinstance(original_kw['ver'], int) or
+                    not original_kw['ver'].startswith('/')):
                 # fix ver to include the slash
                 original_kw['ver'] = '/%s' % ver
-        my_url = _routes_default_url_for(*original_args, **original_kw)
 
-    if kw.get('qualified', False) or kw.get('_external', False):
-        kw['protocol'], kw['host'] = get_site_protocol_and_host()
+        my_url = _routes_default_url_for(*original_args, **original_kw)
 
     if kw.get('_external', False) and 'qualified' not in original_kw:
         original_kw['qualified'] = True
