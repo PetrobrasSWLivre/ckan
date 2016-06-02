@@ -3,9 +3,9 @@
 import tempfile
 import csv
 import datetime
-import routes
-
+from ckan.lib.helpers import url_for
 import ckan.tests.legacy as tests
+from ckan.tests import helpers
 
 
 class TestTracking(object):
@@ -15,9 +15,7 @@ class TestTracking(object):
         model.repo.rebuild_db()
 
     def _get_app(self):
-        import paste.fixture
-        import pylons.test
-        return paste.fixture.TestApp(pylons.test.pylonsapp)
+        return helpers._get_test_app()
 
     def _create_sysadmin(self, app):
         '''Create a sysadmin user.
@@ -154,7 +152,9 @@ class TestTracking(object):
         package = self._create_package(app, apikey)
         self._create_resource(app, package, apikey)
 
-        url = routes.url_for(controller='package', action='read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='read',
                              id=package['name'])
         self._post_to_tracking(app, url)
 
@@ -187,7 +187,9 @@ class TestTracking(object):
         package = self._create_package(app, apikey)
         resource = self._create_resource(app, package, apikey)
 
-        url = routes.url_for(controller='package', action='resource_read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='resource_read',
                              id=package['name'], resource_id=resource['id'])
         self._post_to_tracking(app, url)
 
@@ -294,7 +296,9 @@ class TestTracking(object):
         package = self._create_package(app, apikey)
         self._create_resource(app, package, apikey)
 
-        url = routes.url_for(controller='package', action='read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='read',
                              id=package['name'])
 
         # View the package three times from different IPs.
@@ -408,7 +412,9 @@ class TestTracking(object):
         sysadmin_user, apikey = self._create_sysadmin(app)
         package = self._create_package(app, apikey)
         self._create_resource(app, package, apikey)
-        url = routes.url_for(controller='package', action='read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='read',
                              id=package['name'])
 
         # Visit the dataset three times from the same IP.
@@ -466,16 +472,22 @@ class TestTracking(object):
         self._create_package(app, apikey, name='the_player_of_games')
         self._create_package(app, apikey, name='use_of_weapons')
 
-        url = routes.url_for(controller='package', action='read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='read',
                              id='consider_phlebas')
         self._post_to_tracking(app, url)
 
-        url = routes.url_for(controller='package', action='read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='read',
                              id='the_player_of_games')
         self._post_to_tracking(app, url, ip='111.11.111.111')
         self._post_to_tracking(app, url, ip='222.22.222.222')
 
-        url = routes.url_for(controller='package', action='read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='read',
                              id='use_of_weapons')
         self._post_to_tracking(app, url, ip='111.11.111.111')
         self._post_to_tracking(app, url, ip='222.22.222.222')
@@ -506,16 +518,22 @@ class TestTracking(object):
         self._create_package(app, apikey, name='the_player_of_games')
         self._create_package(app, apikey, name='use_of_weapons')
 
-        url = routes.url_for(controller='package', action='read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='read',
                              id='consider_phlebas')
         self._post_to_tracking(app, url)
 
-        url = routes.url_for(controller='package', action='read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='read',
                              id='the_player_of_games')
         self._post_to_tracking(app, url, ip='111.11.111.111')
         self._post_to_tracking(app, url, ip='222.22.222.222')
 
-        url = routes.url_for(controller='package', action='read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='read',
                              id='use_of_weapons')
         self._post_to_tracking(app, url, ip='111.11.111.111')
         self._post_to_tracking(app, url, ip='222.22.222.222')
@@ -608,14 +626,18 @@ class TestTracking(object):
         package_2 = self._create_package(app, apikey, name='another_package')
 
         # View the package_1 three times from different IPs.
-        url = routes.url_for(controller='package', action='read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='read',
                              id=package_1['name'])
         self._post_to_tracking(app, url, ip='111.222.333.44')
         self._post_to_tracking(app, url, ip='111.222.333.55')
         self._post_to_tracking(app, url, ip='111.222.333.66')
 
         # View the package_2 twice from different IPs.
-        url = routes.url_for(controller='package', action='read',
+
+        with app.flask_app.test_request_context():
+            url = url_for(controller='package', action='read',
                              id=package_2['name'])
         self._post_to_tracking(app, url, ip='111.222.333.44')
         self._post_to_tracking(app, url, ip='111.222.333.55')

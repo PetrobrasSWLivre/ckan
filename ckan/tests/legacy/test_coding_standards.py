@@ -552,6 +552,7 @@ class TestPep8(object):
         'ckan/tests/legacy/functional/test_search.py',
         'ckan/tests/legacy/functional/test_tag.py',
         'ckan/tests/legacy/functional/test_tag_vocab.py',
+        'ckan/tests/legacy/functional/test_tracking.py',
         'ckan/tests/legacy/functional/test_upload.py',
         'ckan/tests/legacy/functional/test_user.py',
         'ckan/tests/legacy/html_check.py',
