@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 from bs4 import BeautifulSoup
 from nose.tools import assert_equal, assert_true
 from ckan.lib.helpers import url_for

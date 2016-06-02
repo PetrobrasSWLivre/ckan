@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 from ckan.lib.helpers import url_for
 
 import ckan.plugins as p
