@@ -42,7 +42,6 @@ class MailerBase(SmtpServerHarness):
         # Used to provide a context for url_for
         cls.app = helpers._get_test_app()
 
-
     @classmethod
     def teardown_class(cls):
         SmtpServerHarness.teardown_class()
@@ -50,6 +49,13 @@ class MailerBase(SmtpServerHarness):
 
     def setup(self):
         self.clear_smtp_messages()
+
+        self.app_context = self.app.flask_app.app_context()
+        self.app_context.push()
+
+    def teardown(self):
+
+        self.app_context.pop()
 
     def mime_encode(self, msg, recipient_name):
         text = MIMEText(msg.encode('utf-8'), 'plain', 'utf-8')
@@ -160,9 +166,7 @@ class TestMailer(MailerBase):
         user = factories.User()
         user_obj = model.User.by_name(user['name'])
 
-        # We need to provide a context as url_for is used internally
-        with self.app.flask_app.test_request_context():
-            mailer.send_reset_link(user_obj)
+        mailer.send_reset_link(user_obj)
 
         # check it went to the mock smtp server
         msgs = self.get_smtp_messages()
@@ -171,9 +175,7 @@ class TestMailer(MailerBase):
         assert_equal(msg[1], config['smtp.mail_from'])
         assert_equal(msg[2], [user['email']])
         assert 'Reset' in msg[3], msg[3]
-        # We need to provide a context as url_for is used internally
-        with self.app.flask_app.test_request_context():
-            test_msg = mailer.get_reset_link_body(user_obj)
+        test_msg = mailer.get_reset_link_body(user_obj)
         expected_body = self.mime_encode(test_msg,
                                          user['name'])
 
@@ -184,12 +186,10 @@ class TestMailer(MailerBase):
         user_obj = model.User.by_name(user['name'])
         assert user_obj.reset_key is None, user_obj
 
-        # We need to provide a context as url_for is used internally
-        with self.app.flask_app.test_request_context():
-            # send email
-            mailer.send_invite(user_obj)
+        # send email
+        mailer.send_invite(user_obj)
 
-            test_msg = mailer.get_invite_body(user_obj)
+        test_msg = mailer.get_invite_body(user_obj)
 
         # check it went to the mock smtp server
         msgs = self.get_smtp_messages()
@@ -210,10 +210,8 @@ class TestMailer(MailerBase):
         group = factories.Group()
         role = 'member'
 
-        # We need to provide a context as url_for is used internally
-        with self.app.flask_app.test_request_context():
-            # send email
-            mailer.send_invite(user_obj, group_dict=group, role=role)
+        # send email
+        mailer.send_invite(user_obj, group_dict=group, role=role)
 
         # check it went to the mock smtp server
         msgs = self.get_smtp_messages()
@@ -229,10 +227,8 @@ class TestMailer(MailerBase):
         org = factories.Organization()
         role = 'admin'
 
-        # We need to provide a context as url_for is used internally
-        with self.app.flask_app.test_request_context():
-            # send email
-            mailer.send_invite(user_obj, group_dict=org, role=role)
+        # send email
+        mailer.send_invite(user_obj, group_dict=org, role=role)
 
         # check it went to the mock smtp server
         msgs = self.get_smtp_messages()

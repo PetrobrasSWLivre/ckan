@@ -19,59 +19,57 @@ CkanUrlException = ckan.exceptions.CkanUrlException
 
 class BaseUrlFor(object):
 
-    def __init__(self):
+    @classmethod
+    def setup_class(cls):
 
-        self.app = helpers._get_test_app()
+        cls.app = helpers._get_test_app()
 
-    def url_for(self, *args, **kw):
-        with self.app.flask_app.test_request_context():
-            return h.url_for(*args, **kw)
+    def setup(self):
 
-    def url_for_static(self, *args, **kw):
-        with self.app.flask_app.test_request_context():
-            return h.url_for_static(*args, **kw)
+        self.app_context = self.app.flask_app.app_context()
+        self.app_context.push()
 
-    def url_for_static_or_external(self, *args, **kw):
-        with self.app.flask_app.test_request_context():
-            return h.url_for_static_or_external(*args, **kw)
+    def teardown(self):
+
+        self.app_context.pop()
 
 
 class TestHelpersUrlForStatic(BaseUrlFor):
 
     def test_url_for_static(self):
         url = '/assets/ckan.jpg'
-        eq_(self.url_for_static(url), url)
+        eq_(h.url_for_static(url), url)
 
     def test_url_for_static_adds_starting_slash_if_url_doesnt_have_it(self):
         slashless_url = 'ckan.jpg'
         url = '/' + slashless_url
-        eq_(self.url_for_static(slashless_url), url)
+        eq_(h.url_for_static(slashless_url), url)
 
     def test_url_for_static_converts_unicode_strings_to_regular_strings(self):
         url = u'/ckan.jpg'
-        assert isinstance(self.url_for_static(url), str)
+        assert isinstance(h.url_for_static(url), str)
 
     def test_url_for_static_raises_when_called_with_external_urls(self):
         url = 'http://assets.ckan.org/ckan.jpg'
-        nose.tools.assert_raises(CkanUrlException, self.url_for_static, url)
+        nose.tools.assert_raises(CkanUrlException, h.url_for_static, url)
 
     def test_url_for_static_raises_when_called_with_protocol_relative(self):
         url = '//assets.ckan.org/ckan.jpg'
-        nose.tools.assert_raises(CkanUrlException, self.url_for_static, url)
+        nose.tools.assert_raises(CkanUrlException, h.url_for_static, url)
 
     @helpers.change_config('ckan.site_url', 'http://example.com')
     @helpers.change_config('ckan.root_path', '/my/custom/path/{{LANG}}/foo')
     def test_url_for_static_with_root_path(self):
         url = '/my/custom/path/foo/my-asset/file.txt'
-        generated_url = self.url_for_static('/my-asset/file.txt')
+        generated_url = h.url_for_static('/my-asset/file.txt')
         eq_(generated_url, url)
 
     @helpers.change_config('ckan.site_url', 'http://example.com')
     @helpers.change_config('ckan.root_path', '/my/custom/path/{{LANG}}/foo')
     def test_url_for_static_qualified_with_root_path(self):
         url = 'http://example.com/my/custom/path/foo/my-asset/file.txt'
-        generated_url = self.url_for_static('/my-asset/file.txt',
-                                            qualified=True)
+        generated_url = h.url_for_static('/my-asset/file.txt',
+                                         qualified=True)
         eq_(generated_url, url)
 
     @helpers.set_extra_environ('SCRIPT_NAME', '/my/custom/path')
@@ -79,8 +77,8 @@ class TestHelpersUrlForStatic(BaseUrlFor):
     @helpers.change_config('ckan.root_path', '/my/custom/path/{{LANG}}/foo')
     def test_url_for_static_with_root_path_and_script_name_env(self):
         url = 'http://example.com/my/custom/path/foo/my-asset/file.txt'
-        generated_url = self.url_for_static('/my-asset/file.txt',
-                                            qualified=True)
+        generated_url = h.url_for_static('/my-asset/file.txt',
+                                         qualified=True)
         eq_(generated_url, url)
 
 
@@ -88,24 +86,24 @@ class TestHelpersUrlForStaticOrExternal(BaseUrlFor):
 
     def test_url_for_static_or_external(self):
         url = '/assets/ckan.jpg'
-        eq_(self.url_for_static_or_external(url), url)
+        eq_(h.url_for_static_or_external(url), url)
 
     def test_url_for_static_or_external_works_with_external_urls(self):
         url = 'http://assets.ckan.org/ckan.jpg'
-        eq_(self.url_for_static_or_external(url), url)
+        eq_(h.url_for_static_or_external(url), url)
 
     def test_url_for_static_or_external_converts_unicode_to_strings(self):
         url = u'/ckan.jpg'
-        assert isinstance(self.url_for_static_or_external(url), str)
+        assert isinstance(h.url_for_static_or_external(url), str)
 
     def test_url_for_static_or_external_adds_starting_slash_if_needed(self):
         slashless_url = 'ckan.jpg'
         url = '/' + slashless_url
-        eq_(self.url_for_static_or_external(slashless_url), url)
+        eq_(h.url_for_static_or_external(slashless_url), url)
 
     def test_url_for_static_or_external_works_with_protocol_relative_url(self):
         url = '//assets.ckan.org/ckan.jpg'
-        eq_(self.url_for_static_or_external(url), url)
+        eq_(h.url_for_static_or_external(url), url)
 
 
 class TestHelpersUrlFor(BaseUrlFor):
@@ -113,74 +111,74 @@ class TestHelpersUrlFor(BaseUrlFor):
     @helpers.change_config('ckan.site_url', 'http://example.com')
     def test_url_for_default(self):
         url = '/dataset/my_dataset'
-        generated_url = self.url_for(controller='package', action='read',
-                                     id='my_dataset')
+        generated_url = h.url_for(controller='package', action='read',
+                                  id='my_dataset')
         eq_(generated_url, url)
 
     @helpers.change_config('ckan.site_url', 'http://example.com')
     def test_url_for_with_locale(self):
         url = '/de/dataset/my_dataset'
-        generated_url = self.url_for(controller='package',
-                                     action='read',
-                                     id='my_dataset',
-                                     locale='de')
+        generated_url = h.url_for(controller='package',
+                                  action='read',
+                                  id='my_dataset',
+                                  locale='de')
         eq_(generated_url, url)
 
     @helpers.change_config('ckan.site_url', 'http://example.com')
     @helpers.change_config('ckan.root_path', '/foo/{{LANG}}')
     def test_url_for_with_locale_object(self):
         url = '/foo/de/dataset/my_dataset'
-        generated_url = self.url_for('/dataset/my_dataset',
-                                      locale=Locale('de'))
+        generated_url = h.url_for('/dataset/my_dataset',
+                                  locale=Locale('de'))
         eq_(generated_url, url)
 
     @helpers.change_config('ckan.site_url', 'http://example.com')
     def test_url_for_not_qualified(self):
         url = '/dataset/my_dataset'
-        generated_url = self.url_for(controller='package',
-                                     action='read',
-                                     id='my_dataset',
-                                     qualified=False)
+        generated_url = h.url_for(controller='package',
+                                  action='read',
+                                  id='my_dataset',
+                                  qualified=False)
         eq_(generated_url, url)
 
     @helpers.change_config('ckan.site_url', 'http://example.com')
     def test_url_for_qualified(self):
         url = 'http://example.com/dataset/my_dataset'
-        generated_url = self.url_for(controller='package',
-                                     action='read',
-                                     id='my_dataset',
-                                     qualified=True)
+        generated_url = h.url_for(controller='package',
+                                  action='read',
+                                  id='my_dataset',
+                                  qualified=True)
         eq_(generated_url, url)
 
     @helpers.change_config('ckan.site_url', 'http://example.com')
     @helpers.change_config('ckan.root_path', '/my/prefix')
     def test_url_for_qualified_with_root_path(self):
         url = 'http://example.com/my/prefix/dataset/my_dataset'
-        generated_url = self.url_for(controller='package',
-                                     action='read',
-                                     id='my_dataset',
-                                     qualified=True)
+        generated_url = h.url_for(controller='package',
+                                  action='read',
+                                  id='my_dataset',
+                                  qualified=True)
         eq_(generated_url, url)
 
     @helpers.change_config('ckan.site_url', 'http://example.com')
     def test_url_for_qualified_with_locale(self):
         url = 'http://example.com/de/dataset/my_dataset'
-        generated_url = self.url_for(controller='package',
-                                     action='read',
-                                     id='my_dataset',
-                                     qualified=True,
-                                     locale='de')
+        generated_url = h.url_for(controller='package',
+                                  action='read',
+                                  id='my_dataset',
+                                  qualified=True,
+                                  locale='de')
         eq_(generated_url, url)
 
     @helpers.change_config('ckan.site_url', 'http://example.com')
     @helpers.change_config('ckan.root_path', '/my/custom/path/{{LANG}}/foo')
     def test_url_for_qualified_with_root_path_and_locale(self):
         url = 'http://example.com/my/custom/path/de/foo/dataset/my_dataset'
-        generated_url = self.url_for(controller='package',
-                                     action='read',
-                                     id='my_dataset',
-                                     qualified=True,
-                                     locale='de')
+        generated_url = h.url_for(controller='package',
+                                  action='read',
+                                  id='my_dataset',
+                                  qualified=True,
+                                  locale='de')
         eq_(generated_url, url)
 
     @helpers.set_extra_environ('SCRIPT_NAME', '/my/custom/path')
@@ -188,11 +186,11 @@ class TestHelpersUrlFor(BaseUrlFor):
     @helpers.change_config('ckan.root_path', '/my/custom/path/{{LANG}}/foo')
     def test_url_for_qualified_with_root_path_locale_and_script_name_env(self):
         url = 'http://example.com/my/custom/path/de/foo/dataset/my_dataset'
-        generated_url = self.url_for(controller='package',
-                                     action='read',
-                                     id='my_dataset',
-                                     qualified=True,
-                                     locale='de')
+        generated_url = h.url_for(controller='package',
+                                  action='read',
+                                  id='my_dataset',
+                                  qualified=True,
+                                  locale='de')
         eq_(generated_url, url)
 
 
