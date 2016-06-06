@@ -257,6 +257,17 @@ def make_flask_stack(conf, **app_conf):
 
     # Do all the Flask-specific stuff before adding other middlewares
 
+    if not app.config.get('SERVER_NAME'):
+        site_url = (os.environ.get('CKAN_SITE_URL') or
+                    os.environ.get('CKAN__SITE_URL') or
+                    app_conf.get('ckan.site_url'))
+        if not site_url:
+            raise RuntimeError(
+                'ckan.site_url is not configured and it must have a value.'
+                ' Please amend your .ini file.')
+        parts = urlparse.urlparse(site_url)
+        app.config['SERVER_NAME'] = parts.netloc
+
     # secret key needed for flask-debug-toolbar
     app.config['SECRET_KEY'] = '<replace with a secret key>'
     app.debug = True
@@ -463,8 +474,16 @@ class AskAppDispatcherMiddleware(WSGIParty):
         '''Call each app at the invite route to establish a partyline. Called
         on init.'''
         PATH = '/__invite__/'
+        # We need to send an environ tailored to `ckan.site_url`, otherwise
+        # Flask will return a 404 for the invite path (as we are using
+        # SERVER_NAME). Existance of `ckan.site_url` in config has already
+        # been checked.
+        parts = urlparse.urlparse(config.get('ckan.site_url'))
+        environ_overrides = {
+            'HTTP_HOST': parts.netloc,
+        }
         for app_name, app in apps.items():
-            environ = create_environ(path=PATH)
+            environ = create_environ(PATH, environ_overrides=environ_overrides)
             environ[self.partyline_key] = self.operator_class(self)
             # A reference to the handling app. Used to id the app when
             # responding to a handling request.

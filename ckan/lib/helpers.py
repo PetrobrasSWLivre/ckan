@@ -235,15 +235,6 @@ def url_for(*args, **kw):
 
         my_url = _flask_default_url_for(*args, **kw)
 
-        # Flask url_for doesn't allow to override the host and scheme from
-        # the WSGI environment, so we manually set it from the config values.
-        if kw.get('_external', False):
-            protocol, host = get_site_protocol_and_host()
-            parts = urlparse.urlparse(my_url)
-            my_url = urlparse.urlunparse((
-                protocol, host,
-                parts.path, parts.params, parts.query, parts.fragment))
-
     except FlaskRouteBuildError:
         if original_kw.get('controller') == 'api' and original_kw.get('ver'):
             if (isinstance(original_kw['ver'], int) or
