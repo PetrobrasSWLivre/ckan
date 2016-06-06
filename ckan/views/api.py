@@ -96,22 +96,19 @@ def _identify_user_default():
     # with an userid_checker, but that would mean another db access.
     # See: http://docs.repoze.org/who/1.0/narr.html#module-repoze.who\
     # .plugins.sql )
-    c.user = request.environ.get('REMOTE_USER', '')
-    if c.user:
-        c.user = c.user.decode('utf8')
-        c.userobj = model.User.by_name(c.user)
-        if c.userobj is None or not c.userobj.is_active():
-            # This occurs when a user that was still logged in is deleted,
-            # or when you are logged in, clean db
-            # and then restart (or when you change your username)
-            # There is no user object, so even though repoze thinks you
-            # are logged in and your cookie has ckan_display_name, we
-            # need to force user to logout and login again to get the
-            # User object.
+    g.user = request.environ.get('REMOTE_USER', '')
+    if g.user:
+        g.user = g.user.decode('utf8')
+        g.userobj = model.User.by_name(g.user)
+        if g.userobj is None or not g.userobj.is_active():
 
-            # TODO: this should not be done here
-            # session['lang'] = request.environ.get('CKAN_LANG')
-            # session.save()
+            # This occurs when a user that was still logged in is deleted, or
+            # when you are logged in, clean db and then restart (or when you
+            # change your username). There is no user object, so even though
+            # repoze thinks you are logged in and your cookie has
+            # ckan_display_name, we need to force user to logout and login
+            # again to get the User object.
+
             ev = request.environ
             if 'repoze.who.plugins' in ev:
                 pth = getattr(ev['repoze.who.plugins']['friendlyform'],

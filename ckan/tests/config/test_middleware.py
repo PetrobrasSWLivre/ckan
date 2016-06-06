@@ -2,14 +2,15 @@
 
 import mock
 import wsgiref
-import nose
 from nose.tools import assert_equals, assert_not_equals, eq_
 from routes import url_for
+from flask import Blueprint
 
 import ckan.plugins as p
 import ckan.tests.helpers as helpers
 
-from ckan.config.middleware import AskAppDispatcherMiddleware, CKANFlask
+from ckan.config.middleware import AskAppDispatcherMiddleware
+from ckan.config.middleware.flask_app import CKANFlask
 from ckan.controllers.partyline import PartylineController
 
 
@@ -314,15 +315,16 @@ class TestAppDispatcher(helpers.FunctionalTestBase):
 
         p.unload('test_routing_plugin')
 
-    def test_ask_around_flask_core_and_pylons_extension_route(self):
+    def test_ask_around_flask_extension_and_pylons_extension_route(self):
 
-        # TODO: re-enable when we have a way for Flask extensions to add routes
-        raise nose.SkipTest()
+        app = self._get_test_app()
+        flask_app = helpers.find_flask_app(app)
 
         if not p.plugin_loaded('test_routing_plugin'):
             p.load('test_routing_plugin')
-
-        app = self._get_test_app()
+            plugin = p.get_plugin('test_routing_plugin')
+            flask_app.register_blueprint(plugin.get_blueprint(),
+                                         prioritise_rules=True)
 
         # We want our CKAN app, not the WebTest one
         app = app.app
@@ -407,6 +409,7 @@ class TestAppDispatcher(helpers.FunctionalTestBase):
 class MockRoutingPlugin(p.SingletonPlugin):
 
     p.implements(p.IRoutes)
+    p.implements(p.IBlueprint)
 
     controller = 'ckan.tests.config.test_middleware:MockPylonsController'
 
@@ -430,6 +433,19 @@ class MockRoutingPlugin(p.SingletonPlugin):
                      controller=self.controller, action='view')
 
         return _map
+
+    def get_blueprint(self):
+        # Create Blueprint for plugin
+        blueprint = Blueprint(self.name, self.__module__)
+        # Add plugin url rule to Blueprint object
+        blueprint.add_url_rule('/pylons_and_flask', 'flask_plugin_view',
+                               flask_plugin_view)
+
+        return blueprint
+
+
+def flask_plugin_view(self):
+    return 'Hello World, this is served from a Flask extension'
 
 
 class MockPylonsController(p.toolkit.BaseController):
