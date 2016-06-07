@@ -303,11 +303,11 @@ class Group(vdm.sqlalchemy.RevisionedObjectMixin,
             filter(member_table.c.state == 'active')
 
         # orgs do not show private datasets unless the user is a member
-        if self.is_organization and not user_is_org_member:
-            query = query.filter(_package.Package.private == False)
+        #if self.is_organization and not user_is_org_member:
+        #    query = query.filter(_package.Package.private == False)
         # groups (not orgs) never show private datasets
-        if not self.is_organization:
-            query = query.filter(_package.Package.private == False)
+        #if not self.is_organization:
+        #    query = query.filter(_package.Package.private == False)
 
         query = query.join(member_table,
                 member_table.c.table_id == _package.Package.id)

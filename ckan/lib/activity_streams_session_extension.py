@@ -89,8 +89,8 @@ class DatasetActivitySessionExtension(SessionExtension):
             logger.debug("activity: %s" % activity)
 
             # Don't create activities for private datasets.
-            if obj.private:
-                continue
+            #if obj.private:
+            #    continue
 
             activities[obj.id] = activity
 
@@ -128,8 +128,8 @@ class DatasetActivitySessionExtension(SessionExtension):
                     if package is None: continue
 
                     # Don't create activities for private datasets.
-                    if package.private:
-                        continue
+                    #if package.private:
+                    #    continue
 
                     if package.id in activities:
                         activity = activities[package.id]
